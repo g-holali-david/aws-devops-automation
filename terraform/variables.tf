@@ -1,73 +1,53 @@
+variable "aws_region" {
+  description = "Region AWS pour le deploiement"
+  type        = string
+  default     = "us-east-1"
+}
+
 variable "project_name" {
   description = "Nom du projet"
   type        = string
-  default     = "aws-devops"
-}
-
-variable "environment" {
-  description = "Environnement (dev, prod)"
-  type        = string
-  default     = "dev"
-}
-
-variable "aws_region" {
-  description = "Région AWS"
-  type        = string
-  default     = "us-east-1"  # ← Changé de eu-west-1 à us-east-1
+  default     = "devops-tp"
 }
 
 variable "vpc_cidr" {
-  description = "CIDR du VPC"
+  description = "CIDR block pour le VPC"
   type        = string
   default     = "10.0.0.0/16"
 }
 
-variable "availability_zones" {
-  description = "Liste des AZs"
+variable "public_subnet_cidrs" {
+  description = "CIDR blocks pour les subnets publics"
   type        = list(string)
-  default     = ["us-east-1a", "us-east-1b"]  # ← Changé pour us-east-1
+  default     = ["10.0.1.0/24", "10.0.2.0/24"]
 }
 
-variable "key_name" {
-  description = "Nom de la clé SSH AWS"
-  type        = string
-  default     = "devops-key"  # ← Ajout d'une valeur par défaut cohérente
+variable "availability_zones" {
+  description = "Zones de disponibilite"
+  type        = list(string)
+  default     = ["us-east-1a", "us-east-1b"]
 }
 
-variable "ansible_instance_type" {
-  description = "Type d'instance Ansible"
+variable "instance_type" {
+  description = "Type d'instance EC2"
   type        = string
   default     = "t2.small"
 }
 
-variable "jenkins_instance_type" {
-  description = "Type d'instance Jenkins"
+variable "ami_id" {
+  description = "AMI ID pour Debian"
   type        = string
-  default     = "t2.medium"
+  default     = "ami-0f9c27b471bdcd702"
 }
 
-variable "jenkins_instance_count" {
-  description = "Nombre de serveurs Jenkins"
-  type        = number
-  default     = 2
-
-  validation {
-    condition     = var.jenkins_instance_count >= 1 && var.jenkins_instance_count <= 5
-    error_message = "Le nombre doit être entre 1 et 5"
-  }
+variable "key_name" {
+  description = "Nom de la cle SSH existante"
+  type        = string
+  default     = "devops-key"
 }
 
 variable "allowed_ssh_cidr" {
-  description = "Liste des CIDR autorisés pour SSH (vide = auto-detect)"
+  description = "CIDR autorise pour SSH"
   type        = list(string)
-  default     = []
-}
-
-variable "common_tags" {
-  description = "Tags communs à toutes les ressources"
-  type        = map(string)
-  default = {
-    Project   = "aws-devops"
-    ManagedBy = "Terraform"
-  }
+  default     = ["0.0.0.0/0"]
 }

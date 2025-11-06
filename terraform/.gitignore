@@ -1,11 +1,18 @@
-# Terraform
+# Terraform files
+.terraform/
 *.tfstate
 *.tfstate.*
-.terraform/
+*.tfvars.backup
+*.tfplan
 .terraform.lock.hcl
-terraform.tfvars
-tfplan
+
+# Crash log files
 crash.log
+crash.*.log
+
+# Environment variables
+.env
+*.env
 
 # SSH Keys
 *.pem
@@ -15,7 +22,11 @@ crash.log
 .vscode/
 .idea/
 *.swp
+*.swo
 
 # OS
 .DS_Store
 Thumbs.db
+
+# Logs
+*.log

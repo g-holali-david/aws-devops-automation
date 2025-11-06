@@ -1,156 +1,133 @@
-# Création de la key pair
-resource "tls_private_key" "devops_key" {
-  algorithm = "RSA"
-  rsa_bits  = 4096
-}
-
-resource "aws_key_pair" "devops_key" {
-  key_name   = "devops-key"
-  public_key = tls_private_key.devops_key.public_key_openssh
-}
-
-# Sauvegarde de la clé privée
-resource "local_file" "private_key" {
-  content  = tls_private_key.devops_key.private_key_pem
-  filename = "${path.module}/devops-key.pem"
-  file_permission = "0400"
-}
-
-# Security Group Ansible
-resource "aws_security_group" "ansible" {
-  name        = "${var.project_name}-sg-ansible"
-  description = "Security group for Ansible server"
-  vpc_id      = var.vpc_id
-
-  ingress {
-    description = "SSH"
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
-    description = "Node Exporter"
-    from_port   = 9100
-    to_port     = 9100
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  egress {
-    description = "Allow all outbound"
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = merge(var.common_tags, {
-    Name = "${var.project_name}-sg-ansible"
-  })
-}
-
-# Security Group Jenkins
-resource "aws_security_group" "jenkins" {
-  name        = "${var.project_name}-sg-jenkins"
-  description = "Security group for Jenkins servers"
-  vpc_id      = var.vpc_id
-
-  ingress {
-    description = "SSH"
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
-    description = "Jenkins UI"
-    from_port   = 8080
-    to_port     = 8080
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
-    description = "Node Exporter"
-    from_port   = 9100
-    to_port     = 9100
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  egress {
-    description = "Allow all outbound"
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = merge(var.common_tags, {
-    Name = "${var.project_name}-sg-jenkins"
-  })
-}
-
-# Ansible Instance
-resource "aws_instance" "ansible" {
+resource "aws_instance" "jenkins" {
   ami                    = var.ami_id
-  instance_type          = var.ansible_instance_type
-  key_name               = aws_key_pair.devops_key.key_name
+  instance_type          = var.instance_type
+  key_name               = var.key_name
   subnet_id              = var.subnet_ids[0]
-  vpc_security_group_ids = [aws_security_group.ansible.id]
+  vpc_security_group_ids = [var.jenkins_sg_id]
+
+  root_block_device {
+    volume_size           = 40
+    volume_type           = "gp3"
+    delete_on_termination = true
+  }
 
   user_data = <<-EOF
-    #!/bin/bash
-    set -e
-    apt-get update -y
-    apt-get upgrade -y
-    apt-get install -y software-properties-common
-    add-apt-repository --yes --update ppa:ansible/ansible
-    apt-get install -y ansible curl wget git vim htop
-    
-    cat > /home/ubuntu/install-status.txt << 'STATUS'
-    Installation completed: $(date)
-    Ansible: $(ansible --version | head -n 1)
-    STATUS
-    chown ubuntu:ubuntu /home/ubuntu/install-status.txt
-  EOF
+              #!/bin/bash
+              apt-get update
+              apt-get install -y curl wget git
+              
+              # Configuration du hostname
+              hostnamectl set-hostname jenkins-server
+              
+              # Configuration de /tmp avec 10GB d'espace
+              mount -o remount,size=10G /tmp
+              echo "tmpfs /tmp tmpfs defaults,size=10G 0 0" >> /etc/fstab
+              
+              # Installation de Node Exporter pour Prometheus
+              useradd --no-create-home --shell /bin/false node_exporter
+              cd /tmp
+              wget https://github.com/prometheus/node_exporter/releases/download/v1.7.0/node_exporter-1.7.0.linux-amd64.tar.gz
+              tar xvfz node_exporter-1.7.0.linux-amd64.tar.gz
+              cp node_exporter-1.7.0.linux-amd64/node_exporter /usr/local/bin/
+              chown node_exporter:node_exporter /usr/local/bin/node_exporter
+              
+              # Creation du service Node Exporter
+              cat > /etc/systemd/system/node_exporter.service <<'NODEEOF'
+              [Unit]
+              Description=Node Exporter
+              After=network.target
+
+              [Service]
+              User=node_exporter
+              Group=node_exporter
+              Type=simple
+              ExecStart=/usr/local/bin/node_exporter
+
+              [Install]
+              WantedBy=multi-user.target
+              NODEEOF
+              
+              systemctl daemon-reload
+              systemctl start node_exporter
+              systemctl enable node_exporter
+              EOF
+
+  tags = {
+    Name = "${var.project_name}-jenkins-server"
+    Role = "Jenkins"
+  }
+}
+
+resource "aws_instance" "ansible" {
+  ami                    = var.ami_id
+  instance_type          = var.instance_type
+  key_name               = var.key_name
+  subnet_id              = var.subnet_ids[1]
+  vpc_security_group_ids = [var.ansible_sg_id]
 
   root_block_device {
     volume_size           = 20
     volume_type           = "gp3"
     delete_on_termination = true
-    encrypted             = true
   }
 
-  tags = merge(var.common_tags, {
-    Name = "ansible-srv"
-    Role = "ansible-controller"
-  })
+  user_data = <<-EOF
+              #!/bin/bash
+              apt-get update
+              apt-get install -y curl wget git python3 python3-pip
+              
+              # Configuration du hostname
+              hostnamectl set-hostname ansible-control
+              
+              # Installation de Node Exporter pour Prometheus
+              useradd --no-create-home --shell /bin/false node_exporter
+              cd /tmp
+              wget https://github.com/prometheus/node_exporter/releases/download/v1.7.0/node_exporter-1.7.0.linux-amd64.tar.gz
+              tar xvfz node_exporter-1.7.0.linux-amd64.tar.gz
+              cp node_exporter-1.7.0.linux-amd64/node_exporter /usr/local/bin/
+              chown node_exporter:node_exporter /usr/local/bin/node_exporter
+              
+              # Creation du service Node Exporter
+              cat > /etc/systemd/system/node_exporter.service <<'NODEEOF'
+              [Unit]
+              Description=Node Exporter
+              After=network.target
+
+              [Service]
+              User=node_exporter
+              Group=node_exporter
+              Type=simple
+              ExecStart=/usr/local/bin/node_exporter
+
+              [Install]
+              WantedBy=multi-user.target
+              NODEEOF
+              
+              systemctl daemon-reload
+              systemctl start node_exporter
+              systemctl enable node_exporter
+              EOF
+
+  tags = {
+    Name = "${var.project_name}-ansible-server"
+    Role = "Ansible"
+  }
 }
 
-# Jenkins Instances
-resource "aws_instance" "jenkins" {
-  count = var.jenkins_instance_count
+resource "aws_eip" "jenkins" {
+  instance = aws_instance.jenkins.id
+  domain   = "vpc"
 
-  ami                    = var.ami_id
-  instance_type          = var.jenkins_instance_type
-  key_name               = aws_key_pair.devops_key.key_name
-  subnet_id              = var.subnet_ids[count.index % length(var.subnet_ids)]
-  vpc_security_group_ids = [aws_security_group.jenkins.id]
-
-  root_block_device {
-    volume_size           = 30
-    volume_type           = "gp3"
-    delete_on_termination = true
-    encrypted             = true
+  tags = {
+    Name = "${var.project_name}-jenkins-eip"
   }
+}
 
-  tags = merge(var.common_tags, {
-    Name  = "jenkins-srv${count.index + 1}"
-    Role  = "jenkins"
-    Index = count.index + 1
-  })
+resource "aws_eip" "ansible" {
+  instance = aws_instance.ansible.id
+  domain   = "vpc"
+
+  tags = {
+    Name = "${var.project_name}-ansible-eip"
+  }
 }

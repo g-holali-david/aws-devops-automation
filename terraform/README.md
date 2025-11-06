@@ -1,194 +1,273 @@
-# Terraform - AWS DevOps Automation
+# Infrastructure AWS - Projet DevOps
 
-Infrastructure as Code professionnelle pour le projet DevOps.
+Ce projet Terraform deploie une infrastructure complete sur AWS pour un pipeline CI/CD avec Jenkins et Ansible.
 
-## 📁 Structure
+## Architecture
+
+### Ressources deployees
+
+- **VPC**: 10.0.0.0/16
+- **Subnets publics**: 2 subnets dans des AZs differentes
+- **Internet Gateway**: Pour l'acces Internet
+- **EC2 Instances**:
+  - 1 x Jenkins Server (t2.small, Debian)
+  - 1 x Ansible Control Server (t2.small, Debian)
+- **Security Groups**: Regles de securite pour chaque serveur
+- **Elastic IPs**: IPs publiques statiques pour les instances
+- **Node Exporter**: Installe sur chaque instance pour le monitoring Prometheus
+
+### Ports ouverts
+
+#### Jenkins Server
+- 22 (SSH)
+- 80 (HTTP)
+- 443 (HTTPS)
+- 8080 (Jenkins UI)
+- 9100 (Node Exporter)
+
+#### Ansible Server
+- 22 (SSH)
+- 80 (HTTP)
+- 443 (HTTPS)
+- 9100 (Node Exporter)
+
+## Prerequisites
+
+- Terraform >= 1.0
+- AWS CLI configure avec les credentials
+- Cle SSH `devops-key` existante dans AWS (region us-east-1)
+- Compte AWS avec les permissions necessaires
+
+## Structure du projet
 
 ```
-terraform/
-├── providers.tf              # Configuration providers
-├── variables.tf              # Variables d'entrée
-├── data.tf                   # Data sources & locals
-├── main.tf                   # Orchestration modules
-├── outputs.tf                # Outputs
-├── terraform.tfvars.example  # Template configuration
+terraform-aws-devops/
+├── main.tf                 # Configuration principale
+├── variables.tf            # Declaration des variables
+├── outputs.tf             # Outputs du deploiement
+├── terraform.tfvars       # Valeurs des variables
+├── providers.tf           # Configuration du provider AWS
+│
 ├── modules/
-│   ├── network/              # VPC, Subnets, IGW
-│   ├── compute/              # EC2, Security Groups
-│   └── loadbalancer/         # NLB, ALB
-├── templates/                # Templates Terraform
-└── scripts/                  # Scripts utilitaires
+│   ├── networking/        # Module VPC et reseau
+│   ├── security/          # Module Security Groups
+│   └── compute/           # Module EC2 instances
+│
+└── scripts/
+    ├── init.sh            # Script d'initialisation
+    └── destroy.sh         # Script de destruction
 ```
 
-## 🚀 Quick Start
+## Utilisation
 
-### Prérequis
+### 1. Initialisation
 
 ```bash
-# AWS CLI configuré
-aws configure
-
-# Créer la clé SSH dans AWS
-aws ec2 create-key-pair --key-name devops-key \
-  --query 'KeyMaterial' --output text > ~/.ssh/devops-key.pem
-chmod 400 ~/.ssh/devops-key.pem
+cd terraform-aws-devops
+./scripts/init.sh
 ```
 
-### Déploiement
+Cette commande va:
+- Verifier l'installation de Terraform
+- Verifier les credentials AWS
+- Verifier l'existence de la cle SSH
+- Initialiser Terraform
+- Valider la configuration
+- Formater le code
+
+### 2. Planification
 
 ```bash
-# Configuration
-cp terraform.tfvars.example terraform.tfvars
-vim terraform.tfvars  # Ajuster si nécessaire
-
-# Initialisation
-terraform init
-
-# Validation
-terraform validate
-terraform fmt -recursive
-
-# Plan
-terraform plan -out=tfplan
-
-# Apply
-terraform apply tfplan
+terraform plan
 ```
 
-### Outputs
+Permet de visualiser les ressources qui seront creees.
+
+### 3. Deploiement
 
 ```bash
-# Tous les outputs
+terraform apply
+```
+
+Tape `yes` pour confirmer le deploiement.
+
+### 4. Recuperation des informations
+
+```bash
 terraform output
-
-# Résumé
-terraform output deployment_summary
-
-# DNS spécifiques
-terraform output ansible_nlb_dns
-terraform output jenkins_alb_dns
 ```
 
-## 🏗️ Architecture
+Affiche les IPs publiques, commandes SSH, et URL d'acces.
 
-### Network Module
-- VPC avec DNS activé
-- 2 Subnets publics (multi-AZ)
-- Internet Gateway
-- Route Tables
-
-### Compute Module
-- 1 Ansible server (t2.small)
-- 2 Jenkins servers (t2.medium, configurable)
-- 3 Security Groups
-- User-data pour Ansible
-
-### Load Balancer Module
-- NLB Ansible (port 9100, TCP)
-- ALB Jenkins (port 8080, HTTP)
-- Target Groups avec health checks
-- Listeners configurés
-
-## 🔧 Modules
-
-### Module Network
-```hcl
-module "network" {
-  source = "./modules/network"
-  
-  project_name       = "aws-devops-automation-dev"
-  vpc_cidr           = "10.0.0.0/16"
-  availability_zones = ["eu-west-1a", "eu-west-1b"]
-}
-```
-
-### Module Compute
-```hcl
-module "compute" {
-  source = "./modules/compute"
-  
-  vpc_id                 = module.network.vpc_id
-  subnet_ids             = module.network.public_subnet_ids
-  jenkins_instance_count = 2
-}
-```
-
-### Module Load Balancer
-```hcl
-module "loadbalancer" {
-  source = "./modules/loadbalancer"
-  
-  vpc_id               = module.network.vpc_id
-  ansible_instance_id  = module.compute.ansible_instance_id
-  jenkins_instance_ids = module.compute.jenkins_instance_ids
-}
-```
-
-## 📊 Variables Importantes
-
-| Variable | Description | Défaut |
-|----------|-------------|--------|
-| `project_name` | Nom du projet | aws-devops-automation |
-| `environment` | Environnement | dev |
-| `jenkins_instance_count` | Nombre serveurs Jenkins | 2 |
-| `vpc_cidr` | CIDR du VPC | 10.0.0.0/16 |
-| `key_name` | Clé SSH AWS | devops-key |
-
-## 🔐 Sécurité
-
-- Security Groups avec règles minimales
-- Volumes EBS chiffrés
-- SSH limité à votre IP
-- Pas de credentials dans le code
-
-## 🧹 Nettoyage
+### 5. Destruction
 
 ```bash
-# Détruire toute l'infrastructure
-terraform destroy
+./scripts/destroy.sh
+```
 
-# Avec confirmation automatique (attention!)
+Ou manuellement:
+
+```bash
+terraform destroy
+```
+
+## Outputs importants
+
+Apres le deploiement, Terraform affichera:
+
+- **jenkins_public_ip**: IP publique du serveur Jenkins
+- **jenkins_url**: URL d'acces a Jenkins (http://IP:8080)
+- **jenkins_ssh_command**: Commande pour se connecter en SSH
+- **ansible_public_ip**: IP publique du serveur Ansible
+- **ansible_ssh_command**: Commande pour se connecter en SSH
+- **prometheus_targets**: Targets pour la configuration Prometheus locale
+
+## Connexion SSH
+
+```bash
+# Jenkins
+ssh -i devops-key.pem admin@<JENKINS_PUBLIC_IP>
+
+# Ansible
+ssh -i devops-key.pem admin@<ANSIBLE_PUBLIC_IP>
+```
+
+Note: L'utilisateur par defaut pour Debian est `admin`.
+
+## Configuration Prometheus locale
+
+Les instances exposent Node Exporter sur le port 9100. Pour les monitorer avec votre Prometheus local, ajoutez dans `prometheus.yml`:
+
+```yaml
+scrape_configs:
+  - job_name: 'jenkins-server'
+    static_configs:
+      - targets: ['<JENKINS_PUBLIC_IP>:9100']
+
+  - job_name: 'ansible-server'
+    static_configs:
+      - targets: ['<ANSIBLE_PUBLIC_IP>:9100']
+```
+
+## Personnalisation
+
+### Modifier le type d'instance
+
+Editez `terraform.tfvars`:
+
+```hcl
+instance_type = "t2.medium"
+```
+
+### Modifier la region
+
+Editez `terraform.tfvars`:
+
+```hcl
+aws_region = "eu-west-1"
+```
+
+Note: Si vous changez de region, assurez-vous que:
+- La cle SSH existe dans la nouvelle region
+- L'AMI est disponible dans cette region
+
+### Modifier les CIDRs autorises pour SSH
+
+Editez `terraform.tfvars`:
+
+```hcl
+allowed_ssh_cidr = ["YOUR_IP/32"]
+```
+
+## Verification de l'infrastructure
+
+### Verifier les instances
+
+```bash
+aws ec2 describe-instances \
+  --region us-east-1 \
+  --filters "Name=tag:Project,Values=devops-tp" \
+  --query 'Reservations[*].Instances[*].[InstanceId,State.Name,PublicIpAddress,Tags[?Key==`Name`].Value|[0]]' \
+  --output table
+```
+
+### Verifier les Security Groups
+
+```bash
+aws ec2 describe-security-groups \
+  --region us-east-1 \
+  --filters "Name=tag:Project,Values=devops-tp" \
+  --query 'SecurityGroups[*].[GroupId,GroupName,Description]' \
+  --output table
+```
+
+### Verifier le VPC
+
+```bash
+aws ec2 describe-vpcs \
+  --region us-east-1 \
+  --filters "Name=tag:Project,Values=devops-tp" \
+  --query 'Vpcs[*].[VpcId,CidrBlock,State]' \
+  --output table
+```
+
+## Troubleshooting
+
+### Erreur: Cle SSH inexistante
+
+```
+ERREUR: La cle SSH 'devops-key' n'existe pas dans us-east-1
+```
+
+Solution: Creez la cle dans AWS ou modifiez la variable `key_name` dans `terraform.tfvars`.
+
+### Erreur: Credentials AWS
+
+```
+ERREUR: Credentials AWS non configures
+```
+
+Solution:
+```bash
+aws configure
+```
+
+### Erreur: AMI non disponible
+
+Si l'AMI n'est pas disponible dans votre region, trouvez une AMI Debian equivalente:
+
+```bash
+aws ec2 describe-images \
+  --owners 136693071363 \
+  --filters "Name=name,Values=debian-12-amd64-*" \
+  --query 'Images | sort_by(@, &CreationDate) | [-1].[ImageId,Name,CreationDate]' \
+  --output table
+```
+
+## Prochaines etapes
+
+1. Se connecter aux instances
+2. Installer Jenkins sur le serveur Jenkins
+3. Installer Ansible sur le serveur Ansible
+4. Configurer le pipeline CI/CD
+5. Integrer avec GitLab
+6. Configurer les webhooks
+
+## Nettoyage
+
+Pour supprimer completement l'infrastructure:
+
+```bash
 terraform destroy -auto-approve
 ```
 
-## 📝 Best Practices
+## Support
 
-✅ Utiliser des modules réutilisables
-✅ Séparer les environnements (dev/prod)
-✅ Versionner le code (Git)
-✅ Variables centralisées
-✅ Outputs documentés
-✅ State distant (S3 + DynamoDB) pour la prod
-✅ Validation des variables
-✅ Tags cohérents
+Pour toute question ou probleme, verifiez:
+- Les logs Terraform: `terraform.log`
+- Les logs AWS CloudWatch
+- La documentation AWS
 
-## 🐛 Troubleshooting
+## Licence
 
-### Erreur: Invalid AMI
-```bash
-# Vérifier les AMI disponibles
-aws ec2 describe-images --owners 099720109477 \
-  --filters "Name=name,Values=ubuntu/images/hvm-ssd/ubuntu-jammy-22.04*"
-```
-
-### Erreur: Key pair not found
-```bash
-# Lister les clés
-aws ec2 describe-key-pairs
-
-# Créer la clé
-aws ec2 create-key-pair --key-name devops-key
-```
-
-### Erreur: IP auto-detection failed
-```bash
-# Définir manuellement dans terraform.tfvars
-allowed_ssh_cidr = ["VOTRE_IP/32"]
-```
-
-## 📚 Documentation
-
-- [Terraform AWS Provider](https://registry.terraform.io/providers/hashicorp/aws/latest/docs)
-- [AWS VPC](https://docs.aws.amazon.com/vpc/)
-- [AWS EC2](https://docs.aws.amazon.com/ec2/)
-- [AWS Load Balancing](https://docs.aws.amazon.com/elasticloadbalancing/)
+Projet educatif - TP DevOps

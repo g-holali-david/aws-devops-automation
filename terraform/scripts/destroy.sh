@@ -1,27 +1,38 @@
 #!/bin/bash
-# Script de destruction
 
 set -e
 
-RED='\033[0;31m'
-YELLOW='\033[1;33m'
-NC='\033[0m'
+echo "=========================================="
+echo "Destruction de l'infrastructure AWS"
+echo "=========================================="
 
-echo -e "${RED}"
-echo "╔════════════════════════════════════════════════════════╗"
-echo "║              DESTROY INFRASTRUCTURE                    ║"
-echo "╚════════════════════════════════════════════════════════╝"
-echo -e "${NC}"
+echo ""
+echo "ATTENTION: Cette action va detruire toutes les ressources!"
+echo ""
+read -p "Etes-vous sur de vouloir continuer? (yes/no): " CONFIRM
 
-echo -e "${YELLOW}WARNING: This will destroy ALL resources!${NC}"
-read -p "Type 'destroy' to confirm: " confirm
-
-if [ "$confirm" != "destroy" ]; then
-    echo "Cancelled"
+if [ "$CONFIRM" != "yes" ]; then
+    echo "Operation annulee"
     exit 0
 fi
 
-cd "$(dirname "$0")/.."
-terraform destroy
+echo ""
+echo "Verification des ressources a detruire..."
+terraform plan -destroy
 
-echo -e "${RED}Infrastructure destroyed${NC}"
+echo ""
+read -p "Confirmer la destruction? (yes/no): " FINAL_CONFIRM
+
+if [ "$FINAL_CONFIRM" != "yes" ]; then
+    echo "Operation annulee"
+    exit 0
+fi
+
+echo ""
+echo "Destruction en cours..."
+terraform destroy -auto-approve
+
+echo ""
+echo "=========================================="
+echo "Infrastructure detruite avec succes!"
+echo "=========================================="
