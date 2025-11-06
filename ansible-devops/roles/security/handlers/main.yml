@@ -1,0 +1,7 @@
+---
+# Handlers pour le role security
+
+- name: Restart SSH
+  systemd:
+    name: ssh
+    state: restarted

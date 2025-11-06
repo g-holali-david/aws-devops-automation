@@ -1,0 +1,152 @@
+---
+# Role: jenkins
+# Description: Installation et configuration de Jenkins
+
+- name: Installer les dependances pour Jenkins
+  apt:
+    name:
+      - apt-transport-https
+      - ca-certificates
+      - gnupg2
+    state: present
+  tags:
+    - jenkins
+    - setup
+
+- name: Ajouter la cle GPG Jenkins
+  apt_key:
+    url: "{{ jenkins_repo_key_url }}"
+    state: present
+  tags:
+    - jenkins
+    - setup
+
+- name: Ajouter le repository Jenkins
+  apt_repository:
+    repo: "deb {{ jenkins_repo_url }} binary/"
+    state: present
+    filename: jenkins
+  tags:
+    - jenkins
+    - setup
+
+- name: Mettre a jour le cache APT
+  apt:
+    update_cache: yes
+  tags:
+    - jenkins
+    - setup
+
+- name: Installer Java
+  apt:
+    name: "{{ java_package }}"
+    state: present
+  tags:
+    - jenkins
+    - setup
+    - java
+
+- name: Verifier la version de Java
+  command: java -version
+  register: java_version
+  changed_when: false
+  tags:
+    - jenkins
+    - check
+
+- name: Afficher la version de Java
+  debug:
+    msg: "{{ java_version.stderr_lines }}"
+  tags:
+    - jenkins
+    - check
+
+- name: Installer Jenkins
+  apt:
+    name: jenkins
+    state: present
+  tags:
+    - jenkins
+    - setup
+
+- name: Creer le repertoire pour les options Java
+  file:
+    path: /etc/systemd/system/jenkins.service.d
+    state: directory
+    mode: '0755'
+  tags:
+    - jenkins
+    - setup
+
+- name: Configurer les options Java pour Jenkins
+  template:
+    src: jenkins-java-opts.conf.j2
+    dest: /etc/systemd/system/jenkins.service.d/override.conf
+    mode: '0644'
+  notify: Restart Jenkins
+  tags:
+    - jenkins
+    - setup
+    - config
+
+- name: Recharger systemd
+  systemd:
+    daemon_reload: yes
+  tags:
+    - jenkins
+    - setup
+
+- name: Demarrer et activer Jenkins
+  systemd:
+    name: jenkins
+    enabled: yes
+    state: started
+  tags:
+    - jenkins
+    - setup
+
+- name: Attendre que Jenkins demarre
+  wait_for:
+    port: "{{ jenkins_http_port }}"
+    delay: 10
+    timeout: 300
+  tags:
+    - jenkins
+    - setup
+
+- name: Verifier que Jenkins est accessible
+  uri:
+    url: "http://localhost:{{ jenkins_http_port }}"
+    status_code: 200,403
+    timeout: 10
+  register: jenkins_status
+  retries: 5
+  delay: 10
+  until: jenkins_status.status in [200, 403]
+  tags:
+    - jenkins
+    - check
+
+- name: Recuperer le mot de passe initial Jenkins
+  slurp:
+    src: /var/lib/jenkins/secrets/initialAdminPassword
+  register: jenkins_initial_password
+  ignore_errors: yes
+  tags:
+    - jenkins
+    - password
+
+- name: Afficher le mot de passe initial Jenkins
+  debug:
+    msg: "Mot de passe initial Jenkins: {{ jenkins_initial_password.content | b64decode }}"
+  when: jenkins_initial_password.content is defined
+  tags:
+    - jenkins
+    - password
+
+- name: Afficher l'URL d'acces a Jenkins
+  debug:
+    msg: "Jenkins est accessible sur: http://{{ ansible_host }}:{{ jenkins_http_port }}"
+  tags:
+    - jenkins
+    - info

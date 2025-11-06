@@ -1,0 +1,90 @@
+---
+# Role: common
+# Description: Configuration commune pour tous les serveurs
+
+- name: Mettre a jour le cache APT
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+  tags:
+    - common
+    - setup
+
+- name: Mettre a jour tous les packages
+  apt:
+    upgrade: dist
+    autoremove: yes
+    autoclean: yes
+  tags:
+    - common
+    - setup
+    - upgrade
+
+- name: Installer les packages communs
+  apt:
+    name: "{{ common_packages }}"
+    state: present
+  tags:
+    - common
+    - setup
+    - packages
+
+- name: Configurer le timezone
+  timezone:
+    name: "{{ timezone }}"
+  tags:
+    - common
+    - setup
+    - timezone
+
+- name: Configurer le hostname
+  hostname:
+    name: "{{ inventory_hostname }}"
+  tags:
+    - common
+    - setup
+    - hostname
+
+- name: Ajouter le hostname dans /etc/hosts
+  lineinfile:
+    path: /etc/hosts
+    line: "127.0.1.1 {{ inventory_hostname }}"
+    state: present
+  tags:
+    - common
+    - setup
+    - hostname
+
+- name: Configurer les limites systeme
+  pam_limits:
+    domain: '*'
+    limit_type: '-'
+    limit_item: nofile
+    value: '65536'
+  tags:
+    - common
+    - setup
+
+- name: Activer le service systemd-timesyncd
+  systemd:
+    name: systemd-timesyncd
+    enabled: yes
+    state: started
+  tags:
+    - common
+    - setup
+
+- name: Verifier l'espace disque /tmp
+  shell: df -h /tmp | tail -1 | awk '{print $2}'
+  register: tmp_size
+  changed_when: false
+  tags:
+    - common
+    - check
+
+- name: Afficher la taille de /tmp
+  debug:
+    msg: "Taille de /tmp: {{ tmp_size.stdout }}"
+  tags:
+    - common
+    - check

@@ -1,0 +1,34 @@
+---
+# Playbook d'installation Jenkins uniquement
+
+- name: Installation de Jenkins
+  hosts: jenkins
+  become: yes
+  tags:
+    - jenkins
+  
+  pre_tasks:
+    - name: Verifier que l'utilisateur ansible-admin existe
+      command: id {{ ansible_admin_user }}
+      register: user_exists
+      changed_when: false
+      ignore_errors: yes
+
+    - name: Avertissement si ansible-admin n'existe pas
+      fail:
+        msg: "L'utilisateur {{ ansible_admin_user }} n'existe pas. Executez d'abord setup_users.yml"
+      when: user_exists.rc != 0
+
+  roles:
+    - jenkins
+
+  post_tasks:
+    - name: Afficher les informations de connexion Jenkins
+      debug:
+        msg: |
+          Jenkins a ete installe avec succes!
+          
+          URL: http://{{ ansible_host }}:8080
+          
+          Pour recuperer le mot de passe initial:
+          sudo cat /var/lib/jenkins/secrets/initialAdminPassword

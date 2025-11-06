@@ -1,0 +1,84 @@
+---
+# Role: security
+# Description: Configuration de la securite SSH et systeme
+
+- name: Configurer SSH - Desactiver PermitRootLogin
+  lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^#?PermitRootLogin'
+    line: 'PermitRootLogin no'
+    state: present
+  notify: Restart SSH
+  when: disable_root_login | bool
+  tags:
+    - security
+    - ssh
+
+- name: Configurer SSH - Desactiver PasswordAuthentication
+  lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^#?PasswordAuthentication'
+    line: 'PasswordAuthentication no'
+    state: present
+  notify: Restart SSH
+  when: disable_password_auth | bool
+  tags:
+    - security
+    - ssh
+
+- name: Configurer SSH - Activer PubkeyAuthentication
+  lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^#?PubkeyAuthentication'
+    line: 'PubkeyAuthentication yes'
+    state: present
+  notify: Restart SSH
+  tags:
+    - security
+    - ssh
+
+- name: Configurer SSH - AllowUsers ansible-admin
+  lineinfile:
+    path: /etc/ssh/sshd_config
+    line: 'AllowUsers {{ ansible_admin_user }}'
+    state: present
+  notify: Restart SSH
+  when: inventory_hostname in groups['jenkins']
+  tags:
+    - security
+    - ssh
+    - restrict
+
+- name: Verifier la configuration SSH
+  command: sshd -t
+  changed_when: false
+  tags:
+    - security
+    - ssh
+    - check
+
+- name: Installer fail2ban
+  apt:
+    name: fail2ban
+    state: present
+  tags:
+    - security
+    - fail2ban
+
+- name: Demarrer et activer fail2ban
+  systemd:
+    name: fail2ban
+    enabled: yes
+    state: started
+  tags:
+    - security
+    - fail2ban
+
+- name: Configurer les permissions sur /tmp
+  file:
+    path: /tmp
+    mode: '1777'
+    state: directory
+  tags:
+    - security
+    - permissions

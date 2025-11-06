@@ -1,0 +1,52 @@
+---
+# Playbook principal - Orchestration complete de l'infrastructure
+
+- name: Configuration initiale de tous les serveurs
+  hosts: servers
+  become: yes
+  tags:
+    - setup
+    - initial
+  roles:
+    - ansible_user
+    - common
+
+- name: Configuration de la securite
+  hosts: jenkins
+  become: yes
+  tags:
+    - security
+  roles:
+    - security
+
+- name: Installation et configuration de Jenkins
+  hosts: jenkins
+  become: yes
+  tags:
+    - jenkins
+  roles:
+    - jenkins
+
+- name: Verification finale
+  hosts: all
+  become: yes
+  tags:
+    - check
+  tasks:
+    - name: Verifier que ansible-admin peut se connecter
+      command: id {{ ansible_admin_user }}
+      register: user_check
+      changed_when: false
+
+    - name: Afficher les informations utilisateur
+      debug:
+        msg: "{{ user_check.stdout }}"
+
+    - name: Verifier l'espace disque
+      command: df -h
+      register: disk_space
+      changed_when: false
+
+    - name: Afficher l'espace disque
+      debug:
+        msg: "{{ disk_space.stdout_lines }}"

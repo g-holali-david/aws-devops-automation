@@ -1,0 +1,92 @@
+---
+# Role: ansible_user
+# Description: Creation de l'utilisateur ansible-admin avec configuration SSH
+
+- name: Creer le groupe ansible-admin
+  group:
+    name: "{{ ansible_admin_user }}"
+    state: present
+  tags:
+    - user
+    - setup
+
+- name: Creer l'utilisateur ansible-admin
+  user:
+    name: "{{ ansible_admin_user }}"
+    group: "{{ ansible_admin_user }}"
+    groups: sudo
+    shell: /bin/bash
+    create_home: yes
+    home: "{{ ansible_admin_home }}"
+    state: present
+  tags:
+    - user
+    - setup
+
+- name: Configurer sudo sans mot de passe pour ansible-admin
+  lineinfile:
+    path: /etc/sudoers.d/{{ ansible_admin_user }}
+    line: "{{ ansible_admin_user }} ALL=(ALL) NOPASSWD:ALL"
+    create: yes
+    mode: '0440'
+    validate: 'visudo -cf %s'
+  tags:
+    - user
+    - setup
+    - sudo
+
+- name: Creer le repertoire .ssh pour ansible-admin
+  file:
+    path: "{{ ansible_admin_home }}/.ssh"
+    state: directory
+    owner: "{{ ansible_admin_user }}"
+    group: "{{ ansible_admin_user }}"
+    mode: '0700'
+  tags:
+    - user
+    - setup
+    - ssh
+
+- name: Generer la paire de cles SSH pour ansible-admin (sur ansible control)
+  openssh_keypair:
+    path: "{{ ansible_admin_home }}/.ssh/id_rsa"
+    type: rsa
+    size: 4096
+    owner: "{{ ansible_admin_user }}"
+    group: "{{ ansible_admin_user }}"
+    mode: '0600'
+  when: inventory_hostname in groups['ansible_control']
+  tags:
+    - user
+    - setup
+    - ssh
+    - keygen
+
+- name: Recuperer la cle publique depuis ansible control
+  slurp:
+    src: "{{ ansible_admin_home }}/.ssh/id_rsa.pub"
+  register: ansible_admin_pubkey
+  delegate_to: "{{ groups['ansible_control'][0] }}"
+  run_once: yes
+  tags:
+    - user
+    - setup
+    - ssh
+
+- name: Ajouter la cle publique dans authorized_keys sur les serveurs cibles
+  authorized_key:
+    user: "{{ ansible_admin_user }}"
+    key: "{{ ansible_admin_pubkey.content | b64decode }}"
+    state: present
+  when: inventory_hostname in groups['jenkins']
+  tags:
+    - user
+    - setup
+    - ssh
+
+- name: Afficher un message de confirmation
+  debug:
+    msg: "Utilisateur {{ ansible_admin_user }} cree avec succes sur {{ inventory_hostname }}"
+  tags:
+    - user
+    - setup

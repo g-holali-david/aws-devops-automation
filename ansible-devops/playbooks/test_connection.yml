@@ -1,0 +1,32 @@
+---
+# Playbook de test de connexion
+
+- name: Test de connexion SSH avec admin
+  hosts: all
+  gather_facts: no
+  tasks:
+    - name: Ping tous les serveurs
+      ping:
+
+    - name: Afficher un message
+      debug:
+        msg: "Connexion reussie sur {{ inventory_hostname }}"
+
+- name: Test de connexion avec ansible-admin
+  hosts: jenkins
+  gather_facts: no
+  vars:
+    ansible_user: ansible-admin
+    ansible_ssh_private_key_file: "~/.ssh/id_rsa"
+  tasks:
+    - name: Ping le serveur Jenkins avec ansible-admin
+      ping:
+
+    - name: Verifier l'utilisateur connecte
+      command: whoami
+      register: current_user
+      changed_when: false
+
+    - name: Afficher l'utilisateur
+      debug:
+        msg: "Connecte en tant que: {{ current_user.stdout }}"

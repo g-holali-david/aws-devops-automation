@@ -1,0 +1,26 @@
+---
+# Variables specifiques pour Jenkins
+
+# Version de Jenkins
+jenkins_repo_url: https://pkg.jenkins.io/debian-stable
+jenkins_repo_key_url: https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key
+
+# Java
+java_package: openjdk-17-jdk
+
+# Configuration Jenkins
+jenkins_home: /var/lib/jenkins
+jenkins_http_port: 8080
+jenkins_user: jenkins
+jenkins_group: jenkins
+
+# Plugins Jenkins a installer (optionnel)
+jenkins_plugins:
+  - git
+  - workflow-aggregator
+  - ansible
+  - pipeline-stage-view
+  - blueocean
+
+# Configuration JVM
+jenkins_java_options: "-Djava.awt.headless=true -Xmx2048m -Xms1024m"

@@ -1,0 +1,32 @@
+---
+# Variables globales pour tous les serveurs
+
+# Utilisateur Ansible dedie
+ansible_admin_user: ansible-admin
+ansible_admin_home: /home/ansible-admin
+
+# Configuration SSH
+ssh_port: 22
+disable_root_login: yes
+disable_password_auth: yes
+
+# Timezone
+timezone: Europe/Paris
+
+# Packages communs
+common_packages:
+  - curl
+  - wget
+  - git
+  - vim
+  - htop
+  - net-tools
+  - unzip
+  - gnupg2
+  - software-properties-common
+
+# Configuration du firewall
+enable_ufw: no
+
+# Node Exporter (deja installe par Terraform)
+node_exporter_port: 9100
