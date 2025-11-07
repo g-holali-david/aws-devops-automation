@@ -10,13 +10,11 @@ pipeline {
             agent any
             steps {
                 script {
-                    // Detect current Git branch
                     env.GIT_BRANCH_NAME = sh(
                         script: "git rev-parse --abbrev-ref HEAD",
                         returnStdout: true
                     ).trim()
 
-                    // Determine target environment and Jenkins agent
                     if (env.GIT_BRANCH_NAME == "main") {
                         env.DEPLOY_ENV   = "production"
                         env.TARGET_AGENT = "PROD-NODE"
@@ -48,9 +46,18 @@ pipeline {
             }
 
             steps {
+                // -------------------------------------------------------
+                // Export SERVER_IP in shell, then import into env vars
+                // -------------------------------------------------------
+                sh '''
+                    SERVER_IP=$(hostname -I | awk '{print $1}')
+                    echo "SERVER_IP=$SERVER_IP" > server_ip.env
+                '''
+
                 script {
-                    env.SERVER_IP = sh(script: "hostname -I | awk '{print $1}'", returnStdout: true).trim()
-                    echo "Server IP: ${env.SERVER_IP}"
+                    def props = readProperties file: 'server_ip.env'
+                    env.SERVER_IP = props['SERVER_IP']
+                    echo "Server IP detected: ${env.SERVER_IP}"
                 }
 
                 // -------------------------------
@@ -129,7 +136,6 @@ server {
 }
 EOF'
 
-                    # Enable and reload NGINX
                     sudo ln -sf "$NGINX_SITE" /etc/nginx/sites-enabled/devops-dashboard
                     sudo rm -f /etc/nginx/sites-enabled/default
                     sudo nginx -t
@@ -158,7 +164,7 @@ EOF'
     }
 
     // ============================================================
-    // 3️Post actions
+    // Post actions
     // ============================================================
     post {
         success {
@@ -168,7 +174,7 @@ EOF'
             echo "Deployment failed on ${DEPLOY_ENV}"
         }
         always {
-            echo "🧹 Cleaning up workspace..."
+            echo "Cleaning up workspace..."
             cleanWs()
         }
     }
