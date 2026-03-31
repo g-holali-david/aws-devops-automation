@@ -141,7 +141,7 @@ aws-devops-automation/
 ## Author
 
 **Holali David GAVI** — Cloud & DevOps Engineer
-- Portfolio: [hdgavi.dev](https://hdgavi.dev)
+- Portfolio: [gholalidavid.com](https://gholalidavid.com)
 - GitHub: [@g-holali-david](https://github.com/g-holali-david)
 - LinkedIn: [Holali David GAVI](https://www.linkedin.com/in/holali-david-g-4a434631a/)
 
