@@ -1,4 +1,4 @@
-import React from 'react';
+import React from 'react'; 
 import TeamMember from './components/TeamMember';
 import DeploymentCounter from './components/DeploymentCounter';
 import StatusBadge from './components/StatusBadge';
@@ -6,17 +6,17 @@ import './App.css';
 
 function App() {
   const teamMembers = [
-    { name: 'Membre 1', role: 'Infrastructure Manager (AWS)', color: '#FF6B6B' },
-    { name: 'Membre 2', role: 'Configuration Manager (Ansible)', color: '#4ECDC4' },
-    { name: 'Membre 3', role: 'CI/CD Engineer (Jenkins)', color: '#45B7D1' },
-    { name: 'Membre 4', role: 'Developer & QA', color: '#FFA07A' },
-    { name: 'Membre 5', role: 'DevOps Lead', color: '#98D8C8' }
+    { name: 'Holali David GAVI', role: 'Jenkins CI/CD Engineer, Developer & QA', color: '#45B7D1' },
+    { name: 'Joseph ESSOMBA ATANGANA', role: 'DevOps Lead', color: '#98D8C8' },
+    { name: 'Kevin (Wendyam) SEBEGO', role: 'AWS Infrastructure Manager', color: '#FF6B6B' },
+    { name: 'Abdourahman ABOUBAKARY', role: 'Ansible Configuration Manager', color: '#4ECDC4' },
   ];
 
   return (
     <div className="App">
       <header className="app-header">
         <h1>DevOps Team Dashboard</h1>
+
         <p className="subtitle">TP Déploiement Automatisé - AWS, Ansible & Jenkins</p>
         <StatusBadge />
       </header>
